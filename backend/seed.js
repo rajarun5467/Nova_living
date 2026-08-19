@@ -46,7 +46,7 @@ const run = async () => {
       ...p,
       slug: toSlug(p.name),
       description: `Thoughtfully crafted ${p.name} designed for timeless, everyday living.`,
-      images: ["https://via.placeholder.com/600x600.png?text=" + encodeURIComponent(p.name)],
+      images: ["https://placehold.co/600x600/1C1A17/C9A15A?text=" + encodeURIComponent(p.name)],
       ratings: 4.5,
       numReviews: 12,
     }));
