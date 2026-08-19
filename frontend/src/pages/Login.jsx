@@ -38,7 +38,15 @@ export default function Login() {
       <p className="text-sm text-charcoal/60 mt-6">
         Don't have an account? <Link to="/signup" className="text-gold underline">Sign up</Link>
       </p>
-      <p className="text-xs text-charcoal/40 mt-2">Admin demo: admin@novaliving.in / admin123</p>
+      <div className="mt-6 pt-6 border-t border-black/5">
+        <button
+          type="button"
+          onClick={() => { setEmail("admin@novaliving.in"); setPassword("admin123"); }}
+          className="w-full bg-charcoal/5 border border-charcoal/10 text-charcoal py-3 rounded-full text-sm font-medium hover:bg-charcoal hover:text-white transition-all duration-300"
+        >
+          🔐 Quick Admin Login
+        </button>
+      </div>
     </div>
   );
 }
