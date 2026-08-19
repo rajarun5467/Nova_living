@@ -21,7 +21,7 @@ connectDB();
 
 const app = express();
 
-const allowedOrigin = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+const allowedOrigin = (process.env.CLIENT_URL || "https://nova-living.vercel.app/").replace(/\/$/, "");
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json());
 app.use(morgan("dev"));
