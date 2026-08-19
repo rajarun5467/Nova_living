@@ -44,15 +44,24 @@ export const createProduct = async (req, res) => {
   try {
     const data = { ...req.body };
     data.slug = toSlug(data.name);
+    data.price = Number(data.price);
+    data.stock = Number(data.stock);
     data.images = Array.isArray(data.images) ? data.images : (data.images ? [data.images] : []);
     data.featured = Boolean(data.featured);
+
     if (!data.name || !data.description || !data.price || !data.stock || !data.category) {
       return res.status(400).json({ message: "All required fields are not provided" });
     }
+
+    const existing = await Product.findOne({ slug: data.slug });
+    if (existing) {
+      return res.status(400).json({ message: "Product with this name already exists" });
+    }
+
     const product = await Product.create(data);
     res.status(201).json(product);
   } catch (err) {
-    console.error(err);
+    console.error("CREATE PRODUCT ERROR:", err);
     res.status(500).json({ message: err.message, details: err.errors });
   }
 };

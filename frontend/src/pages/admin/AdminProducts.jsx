@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api/axios.js";
 
-const emptyForm = { name: "", description: "", price: "", stock: "", category: "", material: "", images: "" };
+const emptyForm = { name: "", description: "", price: "", stock: "", category: "", material: "", images: [] };
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -10,8 +10,8 @@ export default function AdminProducts() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
-  const [uploadedImages, setUploadedImages] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [imageInput, setImageInput] = useState("");
 
   const loadProducts = () => api.get("/products?limit=1000").then(({ data }) => setProducts(data.products));
 
@@ -25,7 +25,7 @@ export default function AdminProducts() {
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
-    setUploadedImages([]);
+    setImageInput("");
   };
 
   const handleImageUpload = async (e) => {
@@ -40,11 +40,7 @@ export default function AdminProducts() {
       reader.onload = () => {
         newImages.push(reader.result);
         if (newImages.length === files.length) {
-          setUploadedImages((prev) => [...prev, ...newImages]);
-          setForm((prev) => ({
-            ...prev,
-            images: [...(prev.images ? prev.images.split(",").filter(Boolean) : []), ...newImages].join(", "),
-          }));
+          setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages] }));
           setUploading(false);
         }
       };
@@ -53,10 +49,14 @@ export default function AdminProducts() {
   };
 
   const removeImage = (index) => {
-    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
-    const currentImages = form.images ? form.images.split(",").filter(Boolean) : [];
-    const newImages = currentImages.filter((_, i) => i !== index);
-    setForm((prev) => ({ ...prev, images: newImages.join(", ") }));
+    setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  };
+
+  const addImageUrls = () => {
+    if (!imageInput.trim()) return;
+    const urls = imageInput.split(",").map((s) => s.trim()).filter(Boolean);
+    setForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
+    setImageInput("");
   };
 
   const handleSubmit = async (e) => {
@@ -66,7 +66,7 @@ export default function AdminProducts() {
       ...form,
       price: Number(form.price),
       stock: Number(form.stock),
-      images: form.images ? form.images.split(",").map((s) => s.trim()) : [],
+      images: form.images,
     };
     if (editingId) {
       await api.put(`/products/${editingId}`, payload);
@@ -81,8 +81,6 @@ export default function AdminProducts() {
 
   const handleEdit = (p) => {
     setEditingId(p._id);
-    const existingImages = p.images || [];
-    setUploadedImages(existingImages);
     setForm({
       name: p.name,
       description: p.description,
@@ -90,7 +88,7 @@ export default function AdminProducts() {
       stock: p.stock,
       category: p.category?._id || p.category,
       material: p.material || "",
-      images: existingImages.join(", "),
+      images: p.images || [],
     });
   };
 
@@ -126,11 +124,11 @@ export default function AdminProducts() {
               className="flex-1 border border-black/10 rounded-lg px-4 py-3 focus:border-gold focus:outline-none transition-colors file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-cream file:text-charcoal hover:file:bg-gold hover:file:text-charcoal cursor-pointer"
             />
           </div>
-          {uploadedImages.length > 0 && (
+          {form.images.length > 0 && (
             <div className="grid grid-cols-4 gap-3 mb-3">
-              {uploadedImages.map((img, idx) => (
+              {form.images.map((img, idx) => (
                 <div key={idx} className="relative group">
-                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border border-black/10" />
+                  <img src={img} alt={`Image ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border border-black/10" />
                   <button
                     type="button"
                     onClick={() => removeImage(idx)}
@@ -142,7 +140,22 @@ export default function AdminProducts() {
               ))}
             </div>
           )}
-          <input name="images" placeholder="Or paste Image URLs (comma separated)" value={form.images} onChange={handleChange} className="border border-black/10 rounded-lg px-4 py-3 focus:border-gold focus:outline-none transition-colors w-full" />
+          <div className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Paste image URLs (comma separated)"
+              value={imageInput}
+              onChange={(e) => setImageInput(e.target.value)}
+              className="flex-1 border border-black/10 rounded-lg px-4 py-3 focus:border-gold focus:outline-none transition-colors"
+            />
+            <button
+              type="button"
+              onClick={addImageUrls}
+              className="bg-cream text-charcoal border border-black/10 px-5 rounded-full text-sm font-medium hover:bg-gold hover:text-charcoal transition-colors"
+            >
+              Add
+            </button>
+          </div>
         </div>
         <textarea name="description" placeholder="Product Description" required value={form.description} onChange={handleChange} className="border border-black/10 rounded-lg px-4 py-3 md:col-span-2 focus:border-gold focus:outline-none transition-colors resize-none" rows={4} />
         <div className="md:col-span-2 flex gap-3">
