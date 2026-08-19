@@ -21,7 +21,8 @@ connectDB();
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+const allowedOrigin = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json());
 app.use(morgan("dev"));
 
