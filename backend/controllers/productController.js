@@ -44,10 +44,16 @@ export const createProduct = async (req, res) => {
   try {
     const data = { ...req.body };
     data.slug = toSlug(data.name);
+    data.images = Array.isArray(data.images) ? data.images : (data.images ? [data.images] : []);
+    data.featured = Boolean(data.featured);
+    if (!data.name || !data.description || !data.price || !data.stock || !data.category) {
+      return res.status(400).json({ message: "All required fields are not provided" });
+    }
     const product = await Product.create(data);
     res.status(201).json(product);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: err.message, details: err.errors });
   }
 };
 
