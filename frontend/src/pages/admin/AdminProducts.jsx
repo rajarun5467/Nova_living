@@ -10,6 +10,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imageInput, setImageInput] = useState("");
 
@@ -28,6 +29,33 @@ export default function AdminProducts() {
     setImageInput("");
   };
 
+  const compressImage = (file, maxDim = 800, quality = 0.7) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -36,16 +64,12 @@ export default function AdminProducts() {
     const newImages = [];
 
     for (const file of files) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        newImages.push(reader.result);
-        if (newImages.length === files.length) {
-          setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages] }));
-          setUploading(false);
-        }
-      };
-      reader.readAsDataURL(file);
+      const compressed = await compressImage(file);
+      newImages.push(compressed);
     }
+
+    setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages] }));
+    setUploading(false);
   };
 
   const removeImage = (index) => {
@@ -61,6 +85,7 @@ export default function AdminProducts() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     const wasEditing = Boolean(editingId);
     const payload = {
       ...form,
@@ -68,15 +93,25 @@ export default function AdminProducts() {
       stock: Number(form.stock),
       images: form.images,
     };
-    if (editingId) {
-      await api.put(`/products/${editingId}`, payload);
-    } else {
-      await api.post("/products", payload);
+    try {
+      if (editingId) {
+        await api.put(`/products/${editingId}`, payload);
+      } else {
+        await api.post("/products", payload);
+      }
+      resetForm();
+      loadProducts();
+      setMessage(wasEditing ? "Product updated successfully." : "Product added successfully.");
+      window.setTimeout(() => setMessage(""), 2500);
+    } catch (err) {
+      const status = err.response?.status;
+      const serverMessage = err.response?.data?.message;
+      setError(
+        status === 413
+          ? "Images ka total size bahut bada hai. Chhoti images use karein ya image URLs paste karein."
+          : serverMessage || "Product save nahi ho saka. Backend connection aur admin login check karein."
+      );
     }
-    resetForm();
-    loadProducts();
-    setMessage(wasEditing ? "Product updated successfully." : "Product added successfully.");
-    window.setTimeout(() => setMessage(""), 2500);
   };
 
   const handleEdit = (p) => {
@@ -102,6 +137,7 @@ export default function AdminProducts() {
     <div className="max-w-7xl mx-auto px-6 py-10 lg:px-10 lg:py-12">
       <div className="flex items-end justify-between gap-4 mb-8"><div><Link to="/admin" className="text-xs text-charcoal/45 hover:text-gold">← Overview</Link><p className="text-xs tracking-[0.22em] text-gold mt-5 mb-3">CATALOGUE</p><h1 className="font-serif text-4xl md:text-5xl">Manage products</h1></div><p className="hidden sm:block text-xs text-charcoal/45">{products.length} pieces</p></div>
       {message && <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div>}
+      {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 md:p-8 border border-black/5 shadow-sm grid md:grid-cols-2 gap-4 mb-10">
         <input name="name" placeholder="Product Name" required value={form.name} onChange={handleChange} className="border border-black/10 rounded-lg px-4 py-3 focus:border-gold focus:outline-none transition-colors" />
