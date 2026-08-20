@@ -10,18 +10,16 @@ const labelCls = "block text-xs font-medium text-charcoal/70 mb-1.5";
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [imageInput, setImageInput] = useState("");
 
-  // Modal state
+  // Unified modal state (used for both Add & Edit)
   const [modalOpen, setModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState(emptyForm);
+  const [modalMode, setModalMode] = useState("add"); // "add" | "edit"
   const [editId, setEditId] = useState(null);
-  const [editImageInput, setEditImageInput] = useState("");
-  const [updating, setUpdating] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [imageInput, setImageInput] = useState("");
+  const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalMsg, setModalMsg] = useState("");
   const modalRef = useRef(null);
@@ -64,27 +62,79 @@ export default function AdminProducts() {
     });
   };
 
-  // ── Add Product form (inline) ──
+  // ── Modal open/close ──
+
+  const openAddModal = () => {
+    setModalMode("add");
+    setEditId(null);
+    setForm(emptyForm);
+    setImageInput("");
+    setModalError("");
+    setModalMsg("");
+    setModalOpen(true);
+  };
+
+  const openEditModal = (p) => {
+    setModalMode("edit");
+    setEditId(p._id);
+    setForm({
+      name: p.name || "",
+      description: p.description || "",
+      price: p.price || "",
+      discountPrice: p.discountPrice || "",
+      stock: p.stock || "",
+      category: p.category?._id || p.category || "",
+      material: p.material || "",
+      color: p.color || "",
+      dimensions: p.dimensions || "",
+      featured: p.featured || false,
+      images: p.images || [],
+    });
+    setImageInput("");
+    setModalError("");
+    setModalMsg("");
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditId(null);
+    setForm(emptyForm);
+    setImageInput("");
+    setModalError("");
+    setModalMsg("");
+  };
+
+  // Escape key + body scroll lock
+  useEffect(() => {
+    if (!modalOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", handleEsc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "";
+    };
+  }, [modalOpen]);
+
+  // ── Form handlers (shared by Add & Edit) ──
 
   const handleChange = (e) => {
     const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setForm({ ...form, [e.target.name]: val });
   };
 
-  const resetForm = () => {
-    setForm(emptyForm);
-    setImageInput("");
-  };
-
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     if (form.images.length + files.length > 4) {
-      setError("Maximum 4 images allowed.");
+      setModalError("Maximum 4 images allowed.");
       return;
     }
     setUploading(true);
-    setError("");
+    setModalError("");
     const newImages = [];
     for (const file of files) {
       const compressed = await compressImage(file);
@@ -105,137 +155,47 @@ export default function AdminProducts() {
     setImageInput("");
   };
 
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const payload = { ...form, price: Number(form.price), stock: Number(form.stock), images: form.images };
-    try {
-      await api.post("/products", payload);
-      resetForm();
-      loadProducts();
-      setMessage("Product added successfully.");
-      window.setTimeout(() => setMessage(""), 2500);
-    } catch (err) {
-      const status = err.response?.status;
-      const serverMessage = err.response?.data?.message;
-      setError(
-        status === 413
-          ? "Images ka total size bahut bada hai. Chhoti images use karein ya image URLs paste karein."
-          : serverMessage || "Product save nahi ho saka. Backend connection aur admin login check karein."
-      );
-    }
-  };
-
-  // ── Edit Modal ──
-
-  const openEditModal = (p) => {
-    setEditId(p._id);
-    setEditForm({
-      name: p.name || "",
-      description: p.description || "",
-      price: p.price || "",
-      discountPrice: p.discountPrice || "",
-      stock: p.stock || "",
-      category: p.category?._id || p.category || "",
-      material: p.material || "",
-      color: p.color || "",
-      dimensions: p.dimensions || "",
-      featured: p.featured || false,
-      images: p.images || [],
-    });
-    setEditImageInput("");
-    setModalError("");
-    setModalMsg("");
-    setModalOpen(true);
-  };
-
-  const closeEditModal = () => {
-    setModalOpen(false);
-    setEditId(null);
-    setEditForm(emptyForm);
-    setEditImageInput("");
-    setModalError("");
-    setModalMsg("");
-  };
-
-  // Escape key + body scroll lock
-  useEffect(() => {
-    if (!modalOpen) return;
-    const handleEsc = (e) => {
-      if (e.key === "Escape") closeEditModal();
-    };
-    document.addEventListener("keydown", handleEsc);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "";
-    };
-  }, [modalOpen]);
-
-  const handleEditChange = (e) => {
-    const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setEditForm({ ...editForm, [e.target.name]: val });
-  };
-
-  const handleEditImageUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-    if (editForm.images.length + files.length > 4) {
-      setModalError("Maximum 4 images allowed.");
-      return;
-    }
-    setUploading(true);
-    setModalError("");
-    const newImages = [];
-    for (const file of files) {
-      const compressed = await compressImage(file);
-      newImages.push(compressed);
-    }
-    setEditForm((prev) => ({ ...prev, images: [...prev.images, ...newImages] }));
-    setUploading(false);
-  };
-
-  const removeEditImage = (index) => {
-    setEditForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
-  };
-
-  const addEditImageUrls = () => {
-    if (!editImageInput.trim()) return;
-    const urls = editImageInput.split(",").map((s) => s.trim()).filter(Boolean);
-    setEditForm((prev) => ({ ...prev, images: [...prev.images, ...urls] }));
-    setEditImageInput("");
-  };
-
-  const handleEditSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setModalError("");
-    setUpdating(true);
+    setSaving(true);
     const payload = {
-      ...editForm,
-      price: Number(editForm.price),
-      stock: Number(editForm.stock),
-      discountPrice: editForm.discountPrice ? Number(editForm.discountPrice) : 0,
-      images: editForm.images,
+      ...form,
+      price: Number(form.price),
+      stock: Number(form.stock),
+      discountPrice: form.discountPrice ? Number(form.discountPrice) : 0,
+      images: form.images,
     };
     try {
-      await api.put(`/products/${editId}`, payload);
-      loadProducts();
-      setModalMsg("Product updated successfully.");
-      window.setTimeout(() => {
-        closeEditModal();
-        setMessage("Product updated successfully.");
-        window.setTimeout(() => setMessage(""), 2500);
-      }, 800);
+      if (modalMode === "edit" && editId) {
+        await api.put(`/products/${editId}`, payload);
+        loadProducts();
+        setModalMsg("Product updated successfully.");
+        window.setTimeout(() => {
+          closeModal();
+          setMessage("Product updated successfully.");
+          window.setTimeout(() => setMessage(""), 2500);
+        }, 800);
+      } else {
+        await api.post("/products", payload);
+        loadProducts();
+        setModalMsg("Product added successfully.");
+        window.setTimeout(() => {
+          closeModal();
+          setMessage("Product added successfully.");
+          window.setTimeout(() => setMessage(""), 2500);
+        }, 800);
+      }
     } catch (err) {
       const status = err.response?.status;
       const serverMessage = err.response?.data?.message;
       setModalError(
         status === 413
           ? "Images too large. Use smaller images or URL instead."
-          : serverMessage || "Update failed. Check connection and try again."
+          : serverMessage || "Save failed. Check connection and try again."
       );
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   };
 
@@ -249,46 +209,46 @@ export default function AdminProducts() {
 
   // ── Reusable form fields renderer ──
 
-  const renderFormFields = (formData, onChange, imgUpload, imgRemove, imgInput, setImgInput, addUrls, uploadLabel) => (
+  const renderFormFields = () => (
     <>
       <div>
         <label className={labelCls}>Product Name</label>
-        <input name="name" placeholder="Enter product name" required value={formData.name} onChange={onChange} className={inputCls} />
+        <input name="name" placeholder="Enter product name" required value={form.name} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Category</label>
-        <select name="category" required value={formData.category} onChange={onChange} className={inputCls}>
+        <select name="category" required value={form.category} onChange={handleChange} className={inputCls}>
           <option value="">Select Category</option>
           {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
         </select>
       </div>
       <div>
         <label className={labelCls}>Price (₹)</label>
-        <input name="price" type="number" placeholder="e.g. 12999" required value={formData.price} onChange={onChange} className={inputCls} />
+        <input name="price" type="number" placeholder="e.g. 12999" required value={form.price} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Sale / Discount Price (₹)</label>
-        <input name="discountPrice" type="number" placeholder="e.g. 9999" value={formData.discountPrice} onChange={onChange} className={inputCls} />
+        <input name="discountPrice" type="number" placeholder="e.g. 9999" value={form.discountPrice} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Stock / Quantity</label>
-        <input name="stock" type="number" placeholder="e.g. 25" required value={formData.stock} onChange={onChange} className={inputCls} />
+        <input name="stock" type="number" placeholder="e.g. 25" required value={form.stock} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Material</label>
-        <input name="material" placeholder="e.g. Wood, Leather" value={formData.material} onChange={onChange} className={inputCls} />
+        <input name="material" placeholder="e.g. Wood, Leather" value={form.material} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Color</label>
-        <input name="color" placeholder="e.g. Walnut, Cream" value={formData.color} onChange={onChange} className={inputCls} />
+        <input name="color" placeholder="e.g. Walnut, Cream" value={form.color} onChange={handleChange} className={inputCls} />
       </div>
       <div>
         <label className={labelCls}>Dimensions</label>
-        <input name="dimensions" placeholder="e.g. 120x60x45 cm" value={formData.dimensions} onChange={onChange} className={inputCls} />
+        <input name="dimensions" placeholder="e.g. 120x60x45 cm" value={form.dimensions} onChange={handleChange} className={inputCls} />
       </div>
       <div className="md:col-span-2">
         <label className={labelCls}>Description</label>
-        <textarea name="description" placeholder="Enter product description" required value={formData.description} onChange={onChange} className={`${inputCls} resize-none`} rows={4} />
+        <textarea name="description" placeholder="Enter product description" required value={form.description} onChange={handleChange} className={`${inputCls} resize-none`} rows={4} />
       </div>
       <div className="md:col-span-2">
         <label className={labelCls}>Product Images</label>
@@ -297,19 +257,19 @@ export default function AdminProducts() {
             type="file"
             multiple
             accept="image/*"
-            onChange={imgUpload}
+            onChange={handleImageUpload}
             disabled={uploading}
             className="flex-1 border border-black/10 rounded-lg px-4 py-2.5 focus:border-gold focus:outline-none transition-colors file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-cream file:text-charcoal hover:file:bg-gold hover:file:text-charcoal cursor-pointer text-sm"
           />
         </div>
-        {formData.images.length > 0 && (
+        {form.images.length > 0 && (
           <div className="grid grid-cols-4 gap-3 mb-3">
-            {formData.images.map((img, idx) => (
+            {form.images.map((img, idx) => (
               <div key={idx} className="relative group">
                 <img src={img} alt={`Image ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-black/10" />
                 <button
                   type="button"
-                  onClick={() => imgRemove(idx)}
+                  onClick={() => removeImage(idx)}
                   className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   ×
@@ -322,13 +282,13 @@ export default function AdminProducts() {
           <input
             type="text"
             placeholder="Paste image URLs (comma separated)"
-            value={imgInput}
-            onChange={(e) => setImgInput(e.target.value)}
+            value={imageInput}
+            onChange={(e) => setImageInput(e.target.value)}
             className={inputCls}
           />
           <button
             type="button"
-            onClick={addUrls}
+            onClick={addImageUrls}
             className="bg-cream text-charcoal border border-black/10 px-4 rounded-lg text-xs font-medium hover:bg-gold hover:text-charcoal transition-colors whitespace-nowrap"
           >
             Add URLs
@@ -336,11 +296,13 @@ export default function AdminProducts() {
         </div>
       </div>
       <div className="md:col-span-2 flex items-center gap-2">
-        <input type="checkbox" name="featured" id="featured" checked={formData.featured} onChange={onChange} className="w-4 h-4 accent-gold cursor-pointer" />
+        <input type="checkbox" name="featured" id="featured" checked={form.featured} onChange={handleChange} className="w-4 h-4 accent-gold cursor-pointer" />
         <label htmlFor="featured" className="text-sm text-charcoal/70 cursor-pointer">Featured product</label>
       </div>
     </>
   );
+
+  const isEdit = modalMode === "edit";
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10 lg:px-10 lg:py-12">
@@ -351,24 +313,18 @@ export default function AdminProducts() {
           <p className="text-xs tracking-[0.22em] text-gold mt-5 mb-3">CATALOGUE</p>
           <h1 className="font-serif text-4xl md:text-5xl">Manage products</h1>
         </div>
-        <p className="hidden sm:block text-xs text-charcoal/45">{products.length} pieces</p>
+        <div className="flex items-center gap-4">
+          <p className="hidden sm:block text-xs text-charcoal/45">{products.length} pieces</p>
+          <button
+            onClick={openAddModal}
+            className="bg-charcoal text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-gold transition-colors flex items-center gap-2"
+          >
+            <span className="text-lg leading-none">+</span> Add Product
+          </button>
+        </div>
       </div>
 
       {message && <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div>}
-      {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-      {/* Add Product Form (inline) */}
-      <div className="mb-10">
-        <h2 className="font-serif text-xl mb-4 text-charcoal">Add New Product</h2>
-        <form onSubmit={handleAddSubmit} className="bg-white rounded-xl p-6 md:p-8 border border-black/5 shadow-sm grid md:grid-cols-2 gap-4">
-          {renderFormFields(form, handleChange, handleImageUpload, removeImage, imageInput, setImageInput, addImageUrls)}
-          <div className="md:col-span-2 flex gap-3 mt-2">
-            <button type="submit" disabled={uploading} className="bg-charcoal text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gold transition-colors disabled:opacity-50">
-              {uploading ? "Uploading..." : "Add Product"}
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* Product Table */}
       <div className="bg-white rounded-xl border border-black/5 shadow-sm overflow-hidden">
@@ -410,12 +366,12 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* ── Edit Product Modal ── */}
+      {/* ── Unified Product Modal (Add / Edit) ── */}
       {modalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
           onClick={(e) => {
-            if (e.target === e.currentTarget) closeEditModal();
+            if (e.target === e.currentTarget) closeModal();
           }}
         >
           <div
@@ -424,9 +380,9 @@ export default function AdminProducts() {
           >
             {/* Sticky header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 sticky top-0 bg-white rounded-t-2xl z-10">
-              <h2 className="font-serif text-xl text-charcoal">Edit Product</h2>
+              <h2 className="font-serif text-xl text-charcoal">{isEdit ? "Edit Product" : "Add Product"}</h2>
               <button
-                onClick={closeEditModal}
+                onClick={closeModal}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors text-charcoal/60 hover:text-charcoal text-xl"
               >
                 ×
@@ -438,16 +394,8 @@ export default function AdminProducts() {
               {modalMsg && <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{modalMsg}</div>}
               {modalError && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{modalError}</div>}
 
-              <form onSubmit={handleEditSubmit} id="editProductForm" className="grid md:grid-cols-2 gap-4">
-                {renderFormFields(
-                  editForm,
-                  handleEditChange,
-                  handleEditImageUpload,
-                  removeEditImage,
-                  editImageInput,
-                  setEditImageInput,
-                  addEditImageUrls
-                )}
+              <form onSubmit={handleSubmit} id="productForm" className="grid md:grid-cols-2 gap-4">
+                {renderFormFields()}
               </form>
             </div>
 
@@ -455,18 +403,18 @@ export default function AdminProducts() {
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-black/10 sticky bottom-0 bg-white rounded-b-2xl">
               <button
                 type="button"
-                onClick={closeEditModal}
+                onClick={closeModal}
                 className="border border-black/10 px-5 py-2.5 rounded-full text-sm font-medium hover:border-gold transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                form="editProductForm"
-                disabled={updating || uploading}
+                form="productForm"
+                disabled={saving || uploading}
                 className="bg-charcoal text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gold transition-colors disabled:opacity-50"
               >
-                {updating ? "Updating..." : uploading ? "Uploading..." : "Update Product"}
+                {saving ? "Saving..." : uploading ? "Uploading..." : isEdit ? "Update Product" : "Add Product"}
               </button>
             </div>
           </div>
