@@ -46,6 +46,7 @@ export const createProduct = async (req, res) => {
     data.slug = toSlug(data.name);
     data.price = Number(data.price);
     data.stock = Number(data.stock);
+    data.discountPrice = data.discountPrice ? Number(data.discountPrice) : 0;
     data.images = Array.isArray(data.images) ? data.images : (data.images ? [data.images] : []);
     data.featured = Boolean(data.featured);
 
@@ -72,12 +73,21 @@ export const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
-    Object.assign(product, req.body);
-    if (req.body.name) product.slug = toSlug(req.body.name);
+
+    const data = { ...req.body };
+    if (data.name) data.slug = toSlug(data.name);
+    if (data.price !== undefined) data.price = Number(data.price);
+    if (data.stock !== undefined) data.stock = Number(data.stock);
+    if (data.discountPrice !== undefined) data.discountPrice = Number(data.discountPrice) || 0;
+    if (data.images !== undefined) data.images = Array.isArray(data.images) ? data.images : (data.images ? [data.images] : []);
+    if (data.featured !== undefined) data.featured = Boolean(data.featured);
+
+    Object.assign(product, data);
     const updated = await product.save();
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("UPDATE PRODUCT ERROR:", err);
+    res.status(500).json({ message: err.message, details: err.errors });
   }
 };
 

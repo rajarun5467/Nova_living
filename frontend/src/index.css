@@ -22,6 +22,16 @@ h1, h2, h3, .font-serif {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .animate-hero-image { animation: hero-image 900ms ease-out both; }
 .animate-rise-in { animation: rise-in 700ms ease-out both; }
 
