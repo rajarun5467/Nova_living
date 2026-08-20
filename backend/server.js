@@ -24,6 +24,7 @@ const app = express();
 const allowedOrigin = (process.env.CLIENT_URL || "https://nova-living.vercel.app/").replace(/\/$/, "");
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(morgan("dev"));
 
 app.get("/", (req, res) => res.send("NOVA LIVING API is running..."));

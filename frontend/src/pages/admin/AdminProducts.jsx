@@ -29,7 +29,7 @@ export default function AdminProducts() {
     setImageInput("");
   };
 
-  const compressImage = (file, maxDim = 800, quality = 0.7) => {
+  const compressImage = (file, maxDim = 600, quality = 0.5) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -59,8 +59,13 @@ export default function AdminProducts() {
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
+    if (form.images.length + files.length > 4) {
+      setError("Maximum 4 images allowed.");
+      return;
+    }
 
     setUploading(true);
+    setError("");
     const newImages = [];
 
     for (const file of files) {
